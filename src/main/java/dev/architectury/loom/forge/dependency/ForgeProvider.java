@@ -25,6 +25,7 @@
 package dev.architectury.loom.forge.dependency;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -34,6 +35,7 @@ import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.configuration.DependencyInfo;
 import net.fabricmc.loom.util.Constants;
 import net.fabricmc.loom.util.ModPlatform;
+import net.fabricmc.loom.util.download.Download;
 
 public class ForgeProvider extends DependencyProvider {
 	private final ModPlatform platform;
@@ -45,11 +47,52 @@ public class ForgeProvider extends DependencyProvider {
 		platform = getExtension().getPlatform().get();
 	}
 
+	// Forge major version 10 (1.7.10) doesn't have Maven POMs
+	// and requires direct HTTP download instead of Gradle dependency resolution
+	private static final int MAX_VERY_OLD_FORGE_MAJOR = 10;
+
 	@Override
 	public void provide(DependencyInfo dependency) throws Exception {
 		version = new ForgeVersion(dependency.getResolvedVersion());
-		addDependency(dependency.getDepString() + ":userdev", Constants.Configurations.FORGE_USERDEV);
-		addDependency(dependency.getDepString() + ":installer", Constants.Configurations.FORGE_INSTALLER);
+
+		if (version.getMajorVersion() <= MAX_VERY_OLD_FORGE_MAJOR && version.getMajorVersion() > 0) {
+			// Very old Forge (1.7.10) - download JARs directly via HTTP
+			// This version doesn't have Maven POMs so Gradle can't resolve it normally
+			provideVeryOldForge(dependency);
+		} else {
+			// Modern Forge - use normal Gradle dependency resolution
+			addDependency(dependency.getDepString() + ":userdev", Constants.Configurations.FORGE_USERDEV);
+			addDependency(dependency.getDepString() + ":installer", Constants.Configurations.FORGE_INSTALLER);
+		}
+	}
+
+	private void provideVeryOldForge(DependencyInfo dependency) throws Exception {
+		String group = dependency.getDependency().getGroup();
+		String name = dependency.getDependency().getName();
+		String ver = version.getCombined();
+
+		// Build Maven URL path: group/name/version/name-version-classifier.jar
+		String groupPath = group.replace('.', '/');
+		String baseUrl = Constants.FORGE_MAVEN + "/" + groupPath + "/" + name + "/" + ver + "/" + name + "-" + ver;
+
+		Path cacheDir = getGlobalCache().toPath();
+		Files.createDirectories(cacheDir);
+
+		// Download userdev JAR
+		Path userdevJar = cacheDir.resolve("forge-userdev.jar");
+		if (!Files.exists(userdevJar) || refreshDeps()) {
+			getProject().getLogger().lifecycle(":downloading Forge userdev (1.7.10)");
+			Download.create(baseUrl + "-userdev.jar").downloadPath(userdevJar);
+		}
+		addDependency(getProject().files(userdevJar.toFile()), Constants.Configurations.FORGE_USERDEV);
+
+		// Download installer JAR
+		Path installerJar = cacheDir.resolve("forge-installer.jar");
+		if (!Files.exists(installerJar) || refreshDeps()) {
+			getProject().getLogger().lifecycle(":downloading Forge installer (1.7.10)");
+			Download.create(baseUrl + "-installer.jar").downloadPath(installerJar);
+		}
+		addDependency(getProject().files(installerJar.toFile()), Constants.Configurations.FORGE_INSTALLER);
 	}
 
 	public ForgeVersion getVersion() {

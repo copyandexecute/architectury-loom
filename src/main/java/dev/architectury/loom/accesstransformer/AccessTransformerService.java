@@ -78,6 +78,12 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 			FileCollection classpath = new DependencyDownloader(project)
 					.add(accessTransformer.mavenNotation())
 					.add(LoomVersions.ASM.mavenNotation())
+					.add("org.ow2.asm:asm-commons:9.7") // Required for AT CLI
+					.add("org.ow2.asm:asm-tree:9.7") // Required for AT CLI
+					.add("net.sf.jopt-simple:jopt-simple:5.0.4") // Required for AT CLI
+					.add("org.antlr:antlr4-runtime:4.9.1") // Required for AT CLI
+					.add("org.apache.logging.log4j:log4j-api:2.17.1") // Required for AT CLI
+					.add("org.apache.logging.log4j:log4j-core:2.17.1") // Required for AT CLI
 					.platform(LoomVersions.ACCESS_TRANSFORMERS_LOG4J_BOM.mavenNotation())
 					.download();
 
@@ -109,6 +115,25 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 		return createOptions(project, atFiles, true);
 	}
 
+	/**
+	 * Creates options for loader ATs with pre-extracted AT file paths.
+	 * Use this when AT files need special handling (e.g., filtering legacy formats).
+	 */
+	public static Provider<Options> createOptionsForLoaderAts(Project project, TempFiles tempFiles, List<String> atFilePaths) {
+		return createOptions(project, atFilePaths, true);
+	}
+
+	/**
+	 * Extracts and filters legacy AT files from a JAR.
+	 * This handles legacy FML AT formats that the modern parser doesn't support:
+	 * - Wildcards like "* # all fields" and "*() # all methods"
+	 * - Dot-notation for types (Lnet.minecraft.item.Item;) instead of slash-notation
+	 * - Missing return types on constructors
+	 */
+	public static List<String> extractAndFilterLegacyAts(Path jar, UserdevConfig.AccessTransformerLocation location, TempFiles tempFiles) throws IOException {
+		return extractAccessTransformers(jar, location, tempFiles);
+	}
+
 	private static List<String> extractAccessTransformers(Path jar, UserdevConfig.AccessTransformerLocation location, TempFiles tempFiles) throws IOException {
 		final List<String> extracted = new ArrayList<>();
 
@@ -122,13 +147,109 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 					continue;
 				}
 
+				// Filter out legacy AT wildcards that the modern parser doesn't support
+				// (e.g., "* # all fields" or "*() # all methods")
+				String content = new String(atBytes, java.nio.charset.StandardCharsets.UTF_8);
+				String filtered = filterLegacyAtWildcards(content);
+
 				Path tmpFile = tempFiles.file("at-conf", ".cfg");
-				Files.write(tmpFile, atBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+				Files.write(tmpFile, filtered.getBytes(java.nio.charset.StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 				extracted.add(tmpFile.toAbsolutePath().toString());
 			}
 		}
 
 		return extracted;
+	}
+
+	/**
+	 * Filters and fixes legacy AT entries that the modern parser doesn't support.
+	 * Legacy FML used:
+	 * - Wildcards like "* # all fields" and "*() # all methods"
+	 * - Dot-notation for types (Lnet.minecraft.item.Item;) instead of slash-notation (Lnet/minecraft/item/Item;)
+	 * - Missing return types on constructors (<init>(...) should be <init>(...)V)
+	 * The modern AccessTransform library can't parse these formats.
+	 */
+	private static String filterLegacyAtWildcards(String content) {
+		StringBuilder result = new StringBuilder();
+		for (String line : content.split("\n")) {
+			String trimmed = line.trim();
+			// Keep comments and empty lines
+			if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+				result.append(line).append("\n");
+				continue;
+			}
+
+			// Split by whitespace to check for wildcards
+			String[] parts = trimmed.split("\\s+");
+			// Format is: access class.name member [descriptor] [# comment]
+			// We need to skip lines where member is "*" or "*()"
+			if (parts.length >= 3) {
+				String member = parts[2];
+				if (member.equals("*") || member.equals("*()") || member.endsWith("*()")) {
+					// Skip this line - wildcard not supported
+					continue;
+				}
+			}
+
+			// Fix dot-notation in type descriptors (Lnet.minecraft. -> Lnet/minecraft/)
+			// Only convert dots to slashes inside type descriptors (L...;)
+			String fixedLine = fixLegacyTypeDescriptors(line);
+
+			// Fix missing return type on constructors: <init>(...) -> <init>(...)V
+			fixedLine = fixMissingReturnType(fixedLine);
+
+			result.append(fixedLine).append("\n");
+		}
+		return result.toString();
+	}
+
+	/**
+	 * Fixes method descriptors that are missing a return type.
+	 * For example: <init>(Lnet/minecraft/item/Item$ToolMaterial;) -> <init>(Lnet/minecraft/item/Item$ToolMaterial;)V
+	 */
+	private static String fixMissingReturnType(String line) {
+		// Match pattern: ends with ) but not )V, )I, )Z, etc. (no return type)
+		// This typically happens with constructors
+		java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\([^)]*\\))(?=[\\s#]|$)");
+		java.util.regex.Matcher matcher = pattern.matcher(line);
+		StringBuffer sb = new StringBuffer();
+		while (matcher.find()) {
+			String desc = matcher.group(1);
+			// Check if it's missing a return type (ends with just ")")
+			// A valid descriptor would be like "(...)V" or "(...)Lcom/example/Class;"
+			// If we see "(...)" followed by whitespace, comment, or end of line, it's missing the return type
+			// Use Matcher.quoteReplacement to escape any $ signs in the descriptor
+			matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(desc + "V"));
+		}
+		matcher.appendTail(sb);
+		return sb.toString();
+	}
+
+	/**
+	 * Fixes legacy type descriptors that use dot-notation instead of slash-notation.
+	 * For example: Lnet.minecraft.item.Item; -> Lnet/minecraft/item/Item;
+	 */
+	private static String fixLegacyTypeDescriptors(String line) {
+		StringBuilder result = new StringBuilder();
+		boolean inTypeDescriptor = false;
+		for (int i = 0; i < line.length(); i++) {
+			char c = line.charAt(i);
+			if (c == 'L' && !inTypeDescriptor) {
+				// Start of a type descriptor
+				inTypeDescriptor = true;
+				result.append(c);
+			} else if (c == ';' && inTypeDescriptor) {
+				// End of a type descriptor
+				inTypeDescriptor = false;
+				result.append(c);
+			} else if (c == '.' && inTypeDescriptor) {
+				// Convert dot to slash inside type descriptors
+				result.append('/');
+			} else {
+				result.append(c);
+			}
+		}
+		return result.toString();
 	}
 
 	private static List<Path> getAccessTransformerPaths(FileSystemUtil.Delegate fs, UserdevConfig.AccessTransformerLocation location) throws IOException {

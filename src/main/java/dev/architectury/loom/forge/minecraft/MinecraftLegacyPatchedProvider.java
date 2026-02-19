@@ -37,16 +37,19 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.stream.Stream;
 
+import dev.architectury.loom.accesstransformer.AccessTransformerService;
 import dev.architectury.loom.forge.CoreModManagerTransformer;
 import dev.architectury.loom.forge.dependency.ForgeProvider;
 import dev.architectury.loom.forge.dependency.PatchProvider;
 import dev.architectury.loom.util.Stopwatch;
+import dev.architectury.loom.util.TempFiles;
 import dev.architectury.loom.util.ThreadingUtils;
 import org.gradle.api.Project;
 import org.objectweb.asm.AnnotationVisitor;
@@ -322,6 +325,49 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 	@Override
 	public Path getMinecraftPatchedJar() {
 		return minecraftPatchedAtJar;
+	}
+
+	@Override
+	protected void accessTransform(Project project, ServiceFactory serviceFactory, Path input, Path target) throws IOException {
+		// Check if there are any ATs configured
+		var userdevConfig = getExtension().getForgeUserdevProvider().getConfig();
+		boolean hasNoAts = userdevConfig.ats().visit(
+			dir -> false, // Directory path means there are ATs
+			list -> list.isEmpty() // FileList - check if empty
+		);
+		if (hasNoAts) {
+			// No ATs configured, just copy the input to target
+			logger.lifecycle(":skipping access transform (no ATs configured)");
+			Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
+			return;
+		}
+
+		// For legacy Forge: ATs are in the Universal JAR, not the userdev JAR
+		Stopwatch stopwatch = Stopwatch.createStarted();
+		logger.lifecycle(":access transforming minecraft (legacy)");
+
+		try (var tempFiles = new TempFiles()) {
+			// Extract and filter ATs from Universal JAR to temp files
+			Path universalJar = getExtension().getForgeUniversalProvider().getForge().toPath();
+			List<String> atFilePaths = AccessTransformerService.extractAndFilterLegacyAts(
+				universalJar, userdevConfig.ats(), tempFiles
+			);
+
+			if (atFilePaths.isEmpty()) {
+				logger.lifecycle(":skipping access transform (no valid AT entries)");
+				Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
+				return;
+			}
+
+			// Use the standard options but with our extracted AT files
+			AccessTransformerService service = serviceFactory.get(
+				AccessTransformerService.createOptionsForLoaderAts(project, tempFiles, atFilePaths)
+			);
+			Files.deleteIfExists(target);
+			service.execute(input, target);
+		}
+
+		logger.lifecycle(":access transformed minecraft in " + stopwatch.stop());
 	}
 
 	/**

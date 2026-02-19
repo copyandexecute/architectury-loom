@@ -26,12 +26,15 @@ package dev.architectury.loom.forge.dependency;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Optional;
 
 import org.gradle.api.Project;
 
 import net.fabricmc.loom.configuration.DependencyInfo;
 import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.download.Download;
 
 public class ForgeUniversalProvider extends DependencyProvider {
 	private File forge;
@@ -45,9 +48,35 @@ public class ForgeUniversalProvider extends DependencyProvider {
 		forge = new File(getExtension().getForgeProvider().getGlobalCache(), "forge-universal.jar");
 
 		if (!forge.exists() || refreshDeps()) {
-			File dep = dependency.resolveFile().orElseThrow(() -> new RuntimeException("Could not resolve Forge"));
-			Files.copy(dep.toPath(), forge.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			// Try normal Gradle resolution first
+			Optional<File> dep;
+			try {
+				dep = dependency.resolveFile();
+			} catch (Exception e) {
+				// For very old Forge (1.7.10), Gradle can't resolve the dependency
+				// Download directly via HTTP instead
+				provideVeryOldForge();
+				return;
+			}
+
+			if (dep.isPresent()) {
+				Files.copy(dep.get().toPath(), forge.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			} else {
+				// Fallback to direct download
+				provideVeryOldForge();
+			}
 		}
+	}
+
+	private void provideVeryOldForge() throws Exception {
+		ForgeProvider.ForgeVersion version = getExtension().getForgeProvider().getVersion();
+		String ver = version.getCombined();
+
+		// Build Maven URL path
+		String baseUrl = Constants.FORGE_MAVEN + "/net/minecraftforge/forge/" + ver + "/forge-" + ver;
+
+		getProject().getLogger().lifecycle(":downloading Forge universal (1.7.10)");
+		Download.create(baseUrl + "-universal.jar").downloadPath(forge.toPath());
 	}
 
 	public File getForge() {

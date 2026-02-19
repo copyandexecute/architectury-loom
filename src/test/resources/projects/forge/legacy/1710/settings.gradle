@@ -1,0 +1,28 @@
+pluginManagement {
+	repositories {
+		mavenLocal()
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		maven {
+			name = 'Architectury'
+			url = 'https://maven.architectury.dev/'
+		}
+		maven {
+			name = 'Forge'
+			url = 'https://maven.minecraftforge.net/'
+		}
+		maven {
+			name = 'Essential'
+			url = 'https://repo.essential.gg/repository/maven-public'
+		}
+		gradlePluginPortal()
+		mavenCentral()
+	}
+	plugins {
+		id 'gg.essential.loom' version '1.15.9999'
+	}
+}
+
+rootProject.name = 'test-1710'

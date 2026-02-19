@@ -115,16 +115,33 @@ public class ForgeUserdevProvider extends DependencyProvider {
 		JsonObject json = new JsonObject();
 
 		addLegacyMCPRepo();
-		String mcVersion = fg2Json.get("inheritsFrom").getAsString();
+		// 1.8.9+ has inheritsFrom, 1.7.10 and earlier don't - fall back to extracting from Forge version
+		boolean isVeryOldForge = !fg2Json.has("inheritsFrom");
+		String mcVersion;
+		if (!isVeryOldForge) {
+			mcVersion = fg2Json.get("inheritsFrom").getAsString();
+		} else {
+			mcVersion = getExtension().getForgeProvider().getVersion().getMinecraftVersion();
+		}
 		json.addProperty("mcp", "de.oceanlabs.mcp:mcp:" + mcVersion + ":srg@zip");
 
-		json.addProperty("universal", dependency.getDepString() + ":universal");
+		// For very old Forge (1.7.10), use ForgeProvider's version info since the dependency
+		// might be a file dependency without proper Maven coordinates
+		String forgeDepString;
+		if (isVeryOldForge && (dependency.getDependency().getGroup() == null || dependency.getDependency().getGroup().startsWith("net.fabricmc.synthetic"))) {
+			// Use real Forge coordinates
+			forgeDepString = "net.minecraftforge:forge:" + getExtension().getForgeProvider().getVersion().getCombined();
+		} else {
+			forgeDepString = dependency.getDepString();
+		}
+
+		json.addProperty("universal", forgeDepString + ":universal");
 		json.addProperty("sources", createLegacySources(dependency));
 		json.addProperty("patches", "");
 		json.addProperty("binpatches", "");
 		json.add("binpatcher", createLegacyBinpatcher());
 		json.add("libraries", createLegacyLibs(fg2Json));
-		json.add("runs", createLegacyRuns());
+		json.add("runs", createLegacyRuns(isVeryOldForge));
 		json.add("ats", createLegacyAts());
 
 		return json;
@@ -143,13 +160,44 @@ public class ForgeUserdevProvider extends DependencyProvider {
 		JsonArray array = new JsonArray();
 
 		for (JsonElement lib : json.getAsJsonArray("libraries")) {
-			array.add(lib.getAsJsonObject().get("name"));
+			String name = lib.getAsJsonObject().get("name").getAsString();
+			// Remap or filter old libraries
+			name = remapLegacyLibrary(name);
+			if (name != null) {
+				array.add(name);
+			}
 		}
 
 		return array;
 	}
 
-	private static JsonObject createLegacyRuns() {
+	private static String remapLegacyLibrary(String coordinates) {
+		// Scala 2.11 modules moved from org.scala-lang to org.scala-lang.modules
+		if (coordinates.startsWith("org.scala-lang:scala-parser-combinators_")) {
+			return coordinates.replace("org.scala-lang:", "org.scala-lang.modules:");
+		}
+		if (coordinates.startsWith("org.scala-lang:scala-swing_")) {
+			return coordinates.replace("org.scala-lang:", "org.scala-lang.modules:");
+		}
+		if (coordinates.startsWith("org.scala-lang:scala-xml_")) {
+			return coordinates.replace("org.scala-lang:", "org.scala-lang.modules:");
+		}
+		// Twitch libraries are no longer available (Twitch streaming removed in 2017)
+		if (coordinates.startsWith("tv.twitch:")) {
+			return null; // Filter out
+		}
+		return coordinates;
+	}
+
+	private static JsonObject createLegacyRuns(boolean isVeryOldForge) {
+		// 1.7.10 and earlier use cpw.mods.fml, 1.8+ uses net.minecraftforge.fml
+		String fmlTweaker = isVeryOldForge
+			? "cpw.mods.fml.common.launcher.FMLTweaker"
+			: Constants.LegacyForge.FML_TWEAKER;
+		String fmlServerTweaker = isVeryOldForge
+			? "cpw.mods.fml.common.launcher.FMLServerTweaker"
+			: Constants.LegacyForge.FML_SERVER_TWEAKER;
+
 		JsonObject clientRun = new JsonObject();
 		JsonObject serverRun = new JsonObject();
 		clientRun.addProperty("name", "client");
@@ -160,8 +208,8 @@ public class ForgeUserdevProvider extends DependencyProvider {
 		JsonArray serverArgs = new JsonArray();
 		clientArgs.add("--tweakClass");
 		serverArgs.add("--tweakClass");
-		clientArgs.add(Constants.LegacyForge.FML_TWEAKER);
-		serverArgs.add(Constants.LegacyForge.FML_SERVER_TWEAKER);
+		clientArgs.add(fmlTweaker);
+		serverArgs.add(fmlServerTweaker);
 		clientArgs.add("--accessToken");
 		serverArgs.add("--accessToken");
 		clientArgs.add("undefined");
@@ -175,17 +223,40 @@ public class ForgeUserdevProvider extends DependencyProvider {
 	}
 
 	private static JsonArray createLegacyAts() {
-		JsonArray array = new JsonArray();
-		array.add("merged_at.cfg");
-		return array;
+		// Legacy Forge (1.7.10-1.12.2) has ATs in the root of the Universal JAR
+		// These must be applied at compile-time for the game to work
+		JsonArray ats = new JsonArray();
+		ats.add("fml_at.cfg");
+		ats.add("forge_at.cfg");
+		return ats;
 	}
 
 	private String createLegacySources(DependencyInfo dependency) throws IOException {
 		Path sourceRepo = getExtension().getForgeProvider().getGlobalCache().toPath().resolve("source-repo");
+
+		// For file dependencies (very old Forge 1.7.10), get group/name/version from ForgeProvider
 		String group = dependency.getDependency().getGroup();
-		String name = dependency.getDependency().getName() + "_sources";
+		String name = dependency.getDependency().getName();
 		String version = dependency.getResolvedVersion();
-		LocalMavenHelper sourcesMaven = new LocalMavenHelper(group, name, version, "sources", sourceRepo);
+
+		// Handle file dependencies that don't have group/name/version
+		if (group == null || name == null) {
+			// For 1.7.10, check if sources.zip exists before doing anything else
+			try (FileSystemUtil.Delegate fs = FileSystemUtil.getJarFileSystem(userdevJar.toPath(), false)) {
+				Path sourcesZip = fs.getPath("sources.zip");
+				// 1.7.10 doesn't have sources.zip, only 1.8.9+ does
+				if (!Files.exists(sourcesZip)) {
+					return "";
+				}
+			}
+			// If we get here, sources.zip exists but we still need valid maven coordinates
+			// Use forge coordinates from the ForgeProvider
+			group = "net.minecraftforge";
+			name = "forge";
+			version = getExtension().getForgeProvider().getVersion().getCombined();
+		}
+
+		LocalMavenHelper sourcesMaven = new LocalMavenHelper(group, name + "_sources", version, "sources", sourceRepo);
 		getProject().getRepositories().maven(repo -> {
 			repo.setName("LoomFG2Source");
 			repo.setUrl(sourceRepo);
@@ -193,7 +264,14 @@ public class ForgeUserdevProvider extends DependencyProvider {
 
 		if (!sourcesMaven.exists(null)) {
 			try (FileSystemUtil.Delegate fs = FileSystemUtil.getJarFileSystem(userdevJar.toPath(), false)) {
-				sourcesMaven.copyToMaven(fs.getPath("sources.zip"), null);
+				Path sourcesZip = fs.getPath("sources.zip");
+				// 1.7.10 doesn't have sources.zip, only 1.8.9+ does
+				if (Files.exists(sourcesZip)) {
+					sourcesMaven.copyToMaven(sourcesZip, null);
+				} else {
+					// Return empty string for versions without sources.zip
+					return "";
+				}
 			}
 		}
 

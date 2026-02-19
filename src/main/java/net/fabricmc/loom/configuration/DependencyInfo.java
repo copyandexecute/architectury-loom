@@ -85,11 +85,15 @@ public class DependencyInfo {
 			return resolvedVersion;
 		}
 
-		for (ResolvedDependency rd : sourceConfiguration.getResolvedConfiguration().getFirstLevelModuleDependencies()) {
-			if (rd.getModuleGroup().equals(dependency.getGroup()) && rd.getModuleName().equals(dependency.getName())) {
-				resolvedVersion = rd.getModuleVersion();
-				return resolvedVersion;
+		try {
+			for (ResolvedDependency rd : sourceConfiguration.getResolvedConfiguration().getFirstLevelModuleDependencies()) {
+				if (rd.getModuleGroup().equals(dependency.getGroup()) && rd.getModuleName().equals(dependency.getName())) {
+					resolvedVersion = rd.getModuleVersion();
+					return resolvedVersion;
+				}
 			}
+		} catch (Exception e) {
+			// Resolution failed (e.g., legacy Forge 1.7.10 without base JAR), fall back to declared version
 		}
 
 		resolvedVersion = dependency.getVersion();

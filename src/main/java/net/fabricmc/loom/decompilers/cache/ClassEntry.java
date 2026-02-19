@@ -50,9 +50,8 @@ public record ClassEntry(String name, List<String> innerClasses, List<String> su
 			throw new IllegalArgumentException("Class name must end with '.class': " + name);
 		}
 
-		if (!name.contains("/")) {
-			throw new IllegalArgumentException("Class name must be in a package: " + name);
-		}
+		// Support classes in the default package (no package) - common in legacy Forge (1.7.10)
+		// These classes have no "/" in their name (e.g., "FMLRenderAccessLibrary.class")
 
 		String className = name.replace(".class", "");
 

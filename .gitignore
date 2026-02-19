@@ -24,3 +24,4 @@
 !/bootstrap
 
 /src/**/generated
+/src/test/resources/projects/**/.gradle

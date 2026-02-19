@@ -33,12 +33,9 @@ repositories {
 }
 
 dependencies {
-	minecraft "com.mojang:minecraft:1.12.2"
-	mappings "de.oceanlabs.mcp:mcp_stable:39-1.12"
-	forge "net.minecraftforge:forge:1.12.2-14.23.5.2847"
-
-	// Example mod dep
-	modLocalRuntime "mezz.jei:jei_1.12.2:4.16.1.302"
+	minecraft "com.mojang:minecraft:${project.mc_version}"
+	mappings "${project.mcp_mappings}"
+	forge "net.minecraftforge:forge:${project.forge_version}"
 }
 
 tasks.withType(JavaCompile).configureEach {

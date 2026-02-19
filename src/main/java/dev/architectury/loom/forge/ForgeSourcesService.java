@@ -72,6 +72,10 @@ public final class ForgeSourcesService extends Service<ForgeSourcesService.Optio
 			}
 
 			final String sourceDependency = extension.getForgeUserdevProvider().getConfig().sources();
+			// Skip if no sources configured (e.g., 1.7.10 doesn't have sources.zip)
+			if (sourceDependency == null || sourceDependency.isEmpty()) {
+				return false;
+			}
 			options.getForgeSourceJars().from(DependencyDownloader.download(project, sourceDependency));
 
 			options.getSourceRemapperService().set(SourceRemapperService.TYPE.create(project, sro -> {
@@ -105,6 +109,12 @@ public final class ForgeSourcesService extends Service<ForgeSourcesService.Optio
 	}
 
 	public static void addForgeSourcesDuringProjectConfiguration(Project project, ServiceFactory serviceFactory) throws IOException {
+		// Check if the service is available (it won't be for e.g. 1.7.10 without sources)
+		var optionsProvider = createOptions(project);
+		if (!optionsProvider.isPresent()) {
+			return;
+		}
+
 		List<Path> minecraftJars = LoomGradleExtension.get(project).getMinecraftJars(MappingsNamespace.NAMED);
 		Path minecraftJar;
 
@@ -121,7 +131,7 @@ public final class ForgeSourcesService extends Service<ForgeSourcesService.Optio
 		Path sourcesJar = GenerateSourcesTask.getJarFileWithSuffix("-sources.jar", minecraftJar).toPath();
 
 		if (!Files.exists(sourcesJar)) {
-			final ForgeSourcesService service = serviceFactory.get(createOptions(project));
+			final ForgeSourcesService service = serviceFactory.get(optionsProvider);
 			service.addForgeSources(minecraftJar, sourcesJar);
 		}
 	}
