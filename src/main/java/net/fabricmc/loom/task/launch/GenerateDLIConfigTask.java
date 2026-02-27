@@ -120,6 +120,10 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 
 	@ApiStatus.Internal
 	@Input
+	protected abstract SetProperty<RunConfigArgs> getRunConfigArgs();
+
+	@ApiStatus.Internal
+	@Input
 	@Optional
 	protected abstract Property<ForgeInputs> getForgeInputs();
 
@@ -164,6 +168,14 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 		if (!getExtension().disableObfuscation()) {
 			getMappingJars().from(getProject().getConfigurations().getByName(Constants.Configurations.MAPPINGS_FINAL));
 		}
+
+		getRunConfigArgs().addAll(getProject().provider(() ->
+				getExtension().getRunConfigs().stream()
+						.filter(settings -> !settings.getProgramArgs().isEmpty())
+						.map(settings -> new RunConfigArgs(
+								settings.getEnvironment().toLowerCase(Locale.ROOT),
+								List.copyOf(settings.getProgramArgs())))
+						.toList()));
 
 		if (getExtension().isForgeLike()) {
 			getRunTemplates().addAll(getProject().provider(() -> {
@@ -315,6 +327,12 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 			}
 		}
 
+		for (RunConfigArgs args : getRunConfigArgs().get()) {
+			for (String argument : args.programArgs()) {
+				launchConfig.argument(args.environment(), argument);
+			}
+		}
+
 		//Enable ansi by default for idea and vscode when gradle is not ran with plain console.
 		if (getANSISupportedIDE().get() && !getPlainConsole().get()) {
 			launchConfig.property("fabric.log.disableAnsi", "false");
@@ -383,6 +401,10 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 
 			return stringJoiner.toString();
 		}
+	}
+
+	@ApiStatus.Internal
+	public record RunConfigArgs(String environment, List<String> programArgs) implements Serializable {
 	}
 
 	@ApiStatus.Internal
