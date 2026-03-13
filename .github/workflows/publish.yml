@@ -2,26 +2,12 @@ name: Publish
 on:
   push:
     branches:
-      - 'dev/0.6-forge'
-      - 'dev/0.7-forge'
-      - 'dev/0.8'
-      - 'dev/0.9'
-      - 'dev/0.10.0'
-      - 'dev/0.11.0'
-      - 'dev/0.12.0'
-      - 'dev/1.0'
-      - 'dev/1.1'
-      - 'dev/1.2'
-      - 'dev/1.3'
-      - 'dev/1.4'
-      - 'dev/1.5'
-      - 'dev/1.6'
-      - 'dev/1.7'
-      - 'dev/1.9'
-      - 'dev/1.10'
-      - 'dev/1.11'
       - 'dev/1.13'
       - 'dev/1.15'
+      - 'dev/1.15-with-legacy-support'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -34,11 +20,11 @@ jobs:
           distribution: 'temurin'
       - uses: actions/checkout@v4
       - uses: gradle/actions/wrapper-validation@v4
-      - name: Upload to Maven
-        run: ./gradlew publish exportVersion --stacktrace
+      - name: Build and Publish
+        run: ./gradlew build publish exportVersion -x test --stacktrace
         env:
-          NEXUS_USER: ${{ secrets.NEXUS_USER }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+          NORISK_NEXUS_USERNAME: ${{ secrets.NORISK_NEXUS_USERNAME }}
+          NORISK_NEXUS_PASSWORD: ${{ secrets.NORISK_NEXUS_PASSWORD }}
 
       - name: Read version
         id: version
