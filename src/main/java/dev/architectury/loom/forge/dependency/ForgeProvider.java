@@ -80,18 +80,22 @@ public class ForgeProvider extends DependencyProvider {
 
 		// Download userdev JAR
 		Path userdevJar = cacheDir.resolve("forge-userdev.jar");
+
 		if (!Files.exists(userdevJar) || refreshDeps()) {
 			getProject().getLogger().lifecycle(":downloading Forge userdev (1.7.10)");
 			Download.create(baseUrl + "-userdev.jar").downloadPath(userdevJar);
 		}
+
 		addDependency(getProject().files(userdevJar.toFile()), Constants.Configurations.FORGE_USERDEV);
 
 		// Download installer JAR
 		Path installerJar = cacheDir.resolve("forge-installer.jar");
+
 		if (!Files.exists(installerJar) || refreshDeps()) {
 			getProject().getLogger().lifecycle(":downloading Forge installer (1.7.10)");
 			Download.create(baseUrl + "-installer.jar").downloadPath(installerJar);
 		}
+
 		addDependency(getProject().files(installerJar.toFile()), Constants.Configurations.FORGE_INSTALLER);
 	}
 

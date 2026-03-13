@@ -28,10 +28,10 @@ import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 
 /**
- * An alias for `gg.essential.loom-remap` to `gg.essential.loom`.
+ * An alias for `gg.norisk.loom-remap` to `gg.norisk.loom`.
  */
 public class LoomRemapGradlePlugin implements Plugin<Project> {
-	public static final String NAME = "gg.essential.loom-remap";
+	public static final String NAME = "gg.norisk.loom-remap";
 
 	@Override
 	public void apply(Project target) {

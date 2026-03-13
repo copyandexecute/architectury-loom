@@ -1,13 +1,13 @@
 plugins {
 	id "java"
 	id "java-library"
-	id 'gg.essential.loom' apply false
+	id 'gg.norisk.loom' apply false
 }
 
 allprojects {
 	if (it.path == ":javalib") return;
 
-	apply plugin: "gg.essential.loom"
+	apply plugin: "gg.norisk.loom"
 
 	version = "1.0.0"
 

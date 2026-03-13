@@ -115,6 +115,8 @@ public abstract class RemapTaskConfiguration implements Runnable {
 		trySetupSourceRemapping();
 
 		getProject().afterEvaluate(p -> {
+			if (extension.isSetupSkipped()) return;
+
 			if (extension.isForge()) {
 				if (PropertyUtil.getAndFinalize(extension.getForge().getConvertAccessWideners())) {
 					Aw2At.setup(getProject(), (RemapJarTask) getTasks().getByName(REMAP_JAR_TASK_NAME));
@@ -137,6 +139,8 @@ public abstract class RemapTaskConfiguration implements Runnable {
 		}
 
 		GradleUtils.afterSuccessfulEvaluation(getProject(), () -> {
+			if (extension.isSetupSkipped()) return;
+
 			// Remove -dev jars from the default jar task
 			for (String configurationName : new String[] { JavaPlugin.API_ELEMENTS_CONFIGURATION_NAME, JavaPlugin.RUNTIME_ELEMENTS_CONFIGURATION_NAME }) {
 				Configuration configuration = getConfigurations().getByName(configurationName);
@@ -162,6 +166,8 @@ public abstract class RemapTaskConfiguration implements Runnable {
 		getTasks().named(BasePlugin.ASSEMBLE_TASK_NAME).configure(task -> task.dependsOn(remapSourcesTask));
 
 		GradleUtils.afterSuccessfulEvaluation(getProject(), () -> {
+			if (extension.isSetupSkipped()) return;
+
 			final String sourcesJarTaskName = SourceSetHelper.getMainSourceSet(getProject()).getSourcesJarTaskName();
 			final Task sourcesTask = getTasks().findByName(sourcesJarTaskName);
 

@@ -1,9 +1,9 @@
 import java.nio.file.Files
 
 for (def sourceSet in [
-		sourceSets.main,
-		sourceSets.test
-]) {
+			sourceSets.main,
+			sourceSets.test
+		]) {
 	def sourceSetName = sourceSet.name
 	def taskName = sourceSet.getTaskName('generate', 'PackageInfos')
 	tasks.register(taskName, GeneratePackageInfos) {

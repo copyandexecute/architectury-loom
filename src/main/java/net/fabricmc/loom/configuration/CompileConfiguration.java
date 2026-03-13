@@ -68,6 +68,7 @@ import org.gradle.api.tasks.javadoc.Javadoc;
 import org.gradle.api.tasks.testing.Test;
 
 import net.fabricmc.loom.LoomGradleExtension;
+import net.fabricmc.loom.extension.LoomGradleExtensionImpl;
 import net.fabricmc.loom.api.InterfaceInjectionExtensionAPI;
 import net.fabricmc.loom.build.mixin.GroovyApInvoker;
 import net.fabricmc.loom.build.mixin.JavaApInvoker;
@@ -96,6 +97,7 @@ import net.fabricmc.loom.task.service.ClasspathGroupService;
 import net.fabricmc.loom.util.Checksum;
 import net.fabricmc.loom.util.ExceptionUtil;
 import net.fabricmc.loom.util.ProcessUtil;
+import net.fabricmc.loom.util.VersionFilterHelper;
 import net.fabricmc.loom.util.gradle.GradleUtils;
 import net.fabricmc.loom.util.gradle.SourceSetHelper;
 import net.fabricmc.loom.util.gradle.daemon.DaemonUtils;
@@ -103,7 +105,9 @@ import net.fabricmc.loom.util.service.ScopedServiceFactory;
 import net.fabricmc.loom.util.service.ServiceFactory;
 
 public abstract class CompileConfiguration implements Runnable {
-	private static final String LOCK_PROPERTY_KEY = "fabric.loom.internal.global.lock";
+	private static final String LOCK_PROPERTY_PREFIX = "fabric.loom.internal.lock.";
+	private static final String LOCK_DEBUG_PROPERTY = "fabric.loom.lock.debug";
+	private static final String LOCK_GLOBAL_PROPERTY = "fabric.loom.lock.global";
 
 	@Inject
 	protected abstract Project getProject();
@@ -121,6 +125,15 @@ public abstract class CompileConfiguration implements Runnable {
 		});
 
 		afterEvaluationWithService((serviceFactory) -> {
+			final boolean debug = "true".equals(getProject().findProperty(LOCK_DEBUG_PROPERTY));
+			final long evalStart = debug ? System.currentTimeMillis() : 0;
+
+			if (VersionFilterHelper.shouldSkipSetup(getProject())) {
+				getProject().getLogger().info("Loom: Skipping setup for '{}' (not targeted)", getProject().getPath());
+				((LoomGradleExtensionImpl) extension).setSetupSkipped(true);
+				return;
+			}
+
 			final ConfigContext configContext = new ConfigContextImpl(getProject(), serviceFactory, extension);
 
 			if (extension.disableObfuscation()) {
@@ -139,10 +152,26 @@ public abstract class CompileConfiguration implements Runnable {
 			}
 
 			try {
-				// Setting up loom across Gradle projects is not thread safe, synchronize it here to ensure that multiple projects cannot use it.
-				// There is no easy way around this, as we want to use the same global cache for downloaded or generated files.
-				synchronized (getGlobalLockObject()) {
+				// Synchronize setupMinecraft per MC version. Different versions use separate cache directories
+				// and can safely run in parallel. Same version must be serialized.
+				// Use -Pfabric.loom.lock.global=true to fall back to the old global lock.
+				final boolean global = "true".equals(getProject().findProperty(LOCK_GLOBAL_PROPERTY));
+				final String mcVersion = DependencyInfo.create(getProject(), Configurations.MINECRAFT)
+						.getDependency().getVersion();
+				final String lockKey = global ? "global" : mcVersion;
+
+				synchronized (getLockObject(lockKey)) {
+					if (debug) {
+						getProject().getLogger().lifecycle("[loom-lock] '{}' acquired lock for {} (mode={})", getProject().getPath(), lockKey, global ? "global" : "per-version");
+					}
+
+					final long startTime = debug ? System.currentTimeMillis() : 0;
 					setupMinecraft(configContext);
+
+					if (debug) {
+						final long elapsed = System.currentTimeMillis() - startTime;
+						getProject().getLogger().lifecycle("[loom-lock] '{}' releasing lock for {} (took {}ms)", getProject().getPath(), lockKey, elapsed);
+					}
 				}
 
 				var dependencyManager = new LoomDependencyManager(getProject(), serviceFactory, extension);
@@ -182,6 +211,11 @@ public abstract class CompileConfiguration implements Runnable {
 						e.printStackTrace();
 					}
 				}
+			}
+
+			if (debug) {
+				final long evalElapsed = System.currentTimeMillis() - evalStart;
+				getProject().getLogger().lifecycle("[loom-lock] '{}' total afterEvaluate: {}ms", getProject().getPath(), evalElapsed);
 			}
 		});
 
@@ -620,13 +654,15 @@ public abstract class CompileConfiguration implements Runnable {
 	// We need a lock that works across classloaders, a regular synchronized method will not work here.
 	// We can abuse system properties as a shared object store that we know for sure will be on the same classloader regardless of what Gradle does to loom.
 	// This allows us to ensure that all instances of loom regardless of classloader get the same object to lock on.
-	private static Object getGlobalLockObject() {
-		if (!System.getProperties().contains(LOCK_PROPERTY_KEY)) {
+	private static Object getLockObject(String mcVersion) {
+		String key = LOCK_PROPERTY_PREFIX + mcVersion;
+
+		if (!System.getProperties().contains(key)) {
 			// The .intern resolves a possible race where two difference value objects (remember not the same classloader) are set.
 			//noinspection StringOperationCanBeSimplified
-			System.getProperties().setProperty(LOCK_PROPERTY_KEY, LOCK_PROPERTY_KEY.intern());
+			System.getProperties().setProperty(key, key.intern());
 		}
 
-		return Objects.requireNonNull(System.getProperty(LOCK_PROPERTY_KEY));
+		return Objects.requireNonNull(System.getProperty(key));
 	}
 }

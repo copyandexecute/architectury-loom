@@ -1,5 +1,5 @@
 plugins {
-	id 'gg.essential.loom' apply false
+	id 'gg.norisk.loom' apply false
 }
 
 gradle.lifecycle.beforeProject {
@@ -7,7 +7,7 @@ gradle.lifecycle.beforeProject {
 		return
 	}
 
-	apply plugin: 'gg.essential.loom'
+	apply plugin: 'gg.norisk.loom'
 	apply plugin: 'loom-test-plugin'
 }
 

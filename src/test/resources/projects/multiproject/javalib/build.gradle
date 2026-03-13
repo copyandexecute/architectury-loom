@@ -1,4 +1,4 @@
 plugins {
 	id 'java-library'
-	id 'gg.essential.loom-companion'
+	id 'gg.norisk.loom-companion'
 }

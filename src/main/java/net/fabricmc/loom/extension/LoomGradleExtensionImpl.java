@@ -94,6 +94,7 @@ public abstract class LoomGradleExtensionImpl extends LoomGradleExtensionApiImpl
 	private MojangMappedMinecraftProvider<?> mojangMappedMinecraftProvider;
 	private InstallerData installerData;
 	private boolean refreshDeps;
+	private boolean setupSkipped = false;
 	private final ListProperty<LibraryProcessorManager.LibraryProcessorFactory> libraryProcessorFactories;
 	private final boolean configurationCacheActive;
 	private final boolean isolatedProjectsActive;
@@ -409,6 +410,15 @@ public abstract class LoomGradleExtensionImpl extends LoomGradleExtensionApiImpl
 				NestJarsAction.addToTask(task, jars);
 			}
 		});
+	}
+
+	@Override
+	public boolean isSetupSkipped() {
+		return setupSkipped;
+	}
+
+	public void setSetupSkipped(boolean setupSkipped) {
+		this.setupSkipped = setupSkipped;
 	}
 
 	@Override

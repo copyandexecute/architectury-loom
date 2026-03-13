@@ -238,4 +238,6 @@ public interface LoomGradleExtension extends LoomGradleExtensionAPI {
 	}
 
 	boolean manualRefreshDeps();
+
+	boolean isSetupSkipped();
 }

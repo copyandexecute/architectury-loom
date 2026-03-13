@@ -1,9 +1,6 @@
 pluginManagement {
 	repositories {
-		maven {
-			name = 'Essential Maven'
-			url = 'https://repo.essential.gg/repository/maven-public'
-		}
+		mavenLocal()
 		maven {
 			name = 'Architectury'
 			url = 'https://maven.architectury.dev/'

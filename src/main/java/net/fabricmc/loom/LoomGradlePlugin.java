@@ -88,12 +88,12 @@ public class LoomGradlePlugin implements Plugin<PluginAware> {
 		if (!loggedVersions.contains(LOOM_VERSION)) {
 			loggedVersions.add(LOOM_VERSION);
 			System.setProperty("loom.printed.logged", String.join(",", loggedVersions));
-			project.getLogger().lifecycle("Essential Loom: " + LOOM_VERSION);
+			project.getLogger().lifecycle("NoRisk Loom: " + LOOM_VERSION);
 
 			if (Constants.PLUGIN_BETA) {
-				project.getLogger().lifecycle("This version of Essential Loom is in beta!");
+				project.getLogger().lifecycle("This version of NoRisk Loom is in beta!");
 			} else if (Constants.PLUGIN_DEPRECATED) {
-				project.getLogger().lifecycle("You are using an outdated version of Essential Loom! This version will not receive any support, please consider updating!");
+				project.getLogger().lifecycle("You are using an outdated version of NoRisk Loom! This version will not receive any support, please consider updating!");
 			}
 		}
 

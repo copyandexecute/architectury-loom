@@ -1,11 +1,11 @@
 pluginManagement {
 	plugins {
-		id 'gg.essential.loom-repositories'
+		id 'gg.norisk.loom-repositories'
 	}
 }
 
 plugins {
-	id 'gg.essential.loom-repositories'
+	id 'gg.norisk.loom-repositories'
 }
 
 dependencyResolutionManagement {

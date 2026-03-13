@@ -118,16 +118,19 @@ public class ForgeUserdevProvider extends DependencyProvider {
 		// 1.8.9+ has inheritsFrom, 1.7.10 and earlier don't - fall back to extracting from Forge version
 		boolean isVeryOldForge = !fg2Json.has("inheritsFrom");
 		String mcVersion;
+
 		if (!isVeryOldForge) {
 			mcVersion = fg2Json.get("inheritsFrom").getAsString();
 		} else {
 			mcVersion = getExtension().getForgeProvider().getVersion().getMinecraftVersion();
 		}
+
 		json.addProperty("mcp", "de.oceanlabs.mcp:mcp:" + mcVersion + ":srg@zip");
 
 		// For very old Forge (1.7.10), use ForgeProvider's version info since the dependency
 		// might be a file dependency without proper Maven coordinates
 		String forgeDepString;
+
 		if (isVeryOldForge && (dependency.getDependency().getGroup() == null || dependency.getDependency().getGroup().startsWith("net.fabricmc.synthetic"))) {
 			// Use real Forge coordinates
 			forgeDepString = "net.minecraftforge:forge:" + getExtension().getForgeProvider().getVersion().getCombined();
@@ -163,6 +166,7 @@ public class ForgeUserdevProvider extends DependencyProvider {
 			String name = lib.getAsJsonObject().get("name").getAsString();
 			// Remap or filter old libraries
 			name = remapLegacyLibrary(name);
+
 			if (name != null) {
 				array.add(name);
 			}
@@ -176,27 +180,31 @@ public class ForgeUserdevProvider extends DependencyProvider {
 		if (coordinates.startsWith("org.scala-lang:scala-parser-combinators_")) {
 			return coordinates.replace("org.scala-lang:", "org.scala-lang.modules:");
 		}
+
 		if (coordinates.startsWith("org.scala-lang:scala-swing_")) {
 			return coordinates.replace("org.scala-lang:", "org.scala-lang.modules:");
 		}
+
 		if (coordinates.startsWith("org.scala-lang:scala-xml_")) {
 			return coordinates.replace("org.scala-lang:", "org.scala-lang.modules:");
 		}
+
 		// Twitch libraries are no longer available (Twitch streaming removed in 2017)
 		if (coordinates.startsWith("tv.twitch:")) {
 			return null; // Filter out
 		}
+
 		return coordinates;
 	}
 
 	private static JsonObject createLegacyRuns(boolean isVeryOldForge) {
 		// 1.7.10 and earlier use cpw.mods.fml, 1.8+ uses net.minecraftforge.fml
 		String fmlTweaker = isVeryOldForge
-			? "cpw.mods.fml.common.launcher.FMLTweaker"
-			: Constants.LegacyForge.FML_TWEAKER;
+				? "cpw.mods.fml.common.launcher.FMLTweaker"
+				: Constants.LegacyForge.FML_TWEAKER;
 		String fmlServerTweaker = isVeryOldForge
-			? "cpw.mods.fml.common.launcher.FMLServerTweaker"
-			: Constants.LegacyForge.FML_SERVER_TWEAKER;
+				? "cpw.mods.fml.common.launcher.FMLServerTweaker"
+				: Constants.LegacyForge.FML_SERVER_TWEAKER;
 
 		JsonObject clientRun = new JsonObject();
 		JsonObject serverRun = new JsonObject();
@@ -242,13 +250,16 @@ public class ForgeUserdevProvider extends DependencyProvider {
 		// Handle file dependencies that don't have group/name/version
 		if (group == null || name == null) {
 			// For 1.7.10, check if sources.zip exists before doing anything else
+
 			try (FileSystemUtil.Delegate fs = FileSystemUtil.getJarFileSystem(userdevJar.toPath(), false)) {
 				Path sourcesZip = fs.getPath("sources.zip");
+
 				// 1.7.10 doesn't have sources.zip, only 1.8.9+ does
 				if (!Files.exists(sourcesZip)) {
 					return "";
 				}
 			}
+
 			// If we get here, sources.zip exists but we still need valid maven coordinates
 			// Use forge coordinates from the ForgeProvider
 			group = "net.minecraftforge";
@@ -265,6 +276,7 @@ public class ForgeUserdevProvider extends DependencyProvider {
 		if (!sourcesMaven.exists(null)) {
 			try (FileSystemUtil.Delegate fs = FileSystemUtil.getJarFileSystem(userdevJar.toPath(), false)) {
 				Path sourcesZip = fs.getPath("sources.zip");
+
 				// 1.7.10 doesn't have sources.zip, only 1.8.9+ does
 				if (Files.exists(sourcesZip)) {
 					sourcesMaven.copyToMaven(sourcesZip, null);

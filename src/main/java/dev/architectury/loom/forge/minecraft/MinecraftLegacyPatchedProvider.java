@@ -332,9 +332,10 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 		// Check if there are any ATs configured
 		var userdevConfig = getExtension().getForgeUserdevProvider().getConfig();
 		boolean hasNoAts = userdevConfig.ats().visit(
-			dir -> false, // Directory path means there are ATs
-			list -> list.isEmpty() // FileList - check if empty
+				dir -> false, // Directory path means there are ATs
+				list -> list.isEmpty() // FileList - check if empty
 		);
+
 		if (hasNoAts) {
 			// No ATs configured, just copy the input to target
 			logger.lifecycle(":skipping access transform (no ATs configured)");
@@ -350,7 +351,7 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 			// Extract and filter ATs from Universal JAR to temp files
 			Path universalJar = getExtension().getForgeUniversalProvider().getForge().toPath();
 			List<String> atFilePaths = AccessTransformerService.extractAndFilterLegacyAts(
-				universalJar, userdevConfig.ats(), tempFiles
+					universalJar, userdevConfig.ats(), tempFiles
 			);
 
 			if (atFilePaths.isEmpty()) {
@@ -361,7 +362,7 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 
 			// Use the standard options but with our extracted AT files
 			AccessTransformerService service = serviceFactory.get(
-				AccessTransformerService.createOptionsForLoaderAts(project, tempFiles, atFilePaths)
+					AccessTransformerService.createOptionsForLoaderAts(project, tempFiles, atFilePaths)
 			);
 			Files.deleteIfExists(target);
 			service.execute(input, target);

@@ -120,6 +120,8 @@ public abstract class LoomTasks implements Runnable {
 
 		// Must be done in afterEvaluate to allow time for the build script to configure the jar config.
 		GradleUtils.afterSuccessfulEvaluation(getProject(), () -> {
+			if (extension.isSetupSkipped()) return;
+
 			if (extension.getMinecraftJarConfiguration().get() == MinecraftJarConfiguration.SERVER_ONLY) {
 				// Server only, nothing more to do.
 				return;
@@ -217,6 +219,8 @@ public abstract class LoomTasks implements Runnable {
 
 		// Remove the client or server run config when not required. Done by name to not remove any possible custom run configs
 		GradleUtils.afterSuccessfulEvaluation(getProject(), () -> {
+			if (extension.isSetupSkipped()) return;
+
 			String taskName;
 
 			boolean serverOnly = extension.getMinecraftJarConfiguration().get() == MinecraftJarConfiguration.SERVER_ONLY;

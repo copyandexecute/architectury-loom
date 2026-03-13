@@ -171,8 +171,10 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 	 */
 	private static String filterLegacyAtWildcards(String content) {
 		StringBuilder result = new StringBuilder();
+
 		for (String line : content.split("\n")) {
 			String trimmed = line.trim();
+
 			// Keep comments and empty lines
 			if (trimmed.isEmpty() || trimmed.startsWith("#")) {
 				result.append(line).append("\n");
@@ -181,10 +183,12 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 
 			// Split by whitespace to check for wildcards
 			String[] parts = trimmed.split("\\s+");
+
 			// Format is: access class.name member [descriptor] [# comment]
 			// We need to skip lines where member is "*" or "*()"
 			if (parts.length >= 3) {
 				String member = parts[2];
+
 				if (member.equals("*") || member.equals("*()") || member.endsWith("*()")) {
 					// Skip this line - wildcard not supported
 					continue;
@@ -200,6 +204,7 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 
 			result.append(fixedLine).append("\n");
 		}
+
 		return result.toString();
 	}
 
@@ -213,6 +218,7 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 		java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\([^)]*\\))(?=[\\s#]|$)");
 		java.util.regex.Matcher matcher = pattern.matcher(line);
 		StringBuffer sb = new StringBuffer();
+
 		while (matcher.find()) {
 			String desc = matcher.group(1);
 			// Check if it's missing a return type (ends with just ")")
@@ -221,6 +227,7 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 			// Use Matcher.quoteReplacement to escape any $ signs in the descriptor
 			matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(desc + "V"));
 		}
+
 		matcher.appendTail(sb);
 		return sb.toString();
 	}
@@ -232,8 +239,10 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 	private static String fixLegacyTypeDescriptors(String line) {
 		StringBuilder result = new StringBuilder();
 		boolean inTypeDescriptor = false;
+
 		for (int i = 0; i < line.length(); i++) {
 			char c = line.charAt(i);
+
 			if (c == 'L' && !inTypeDescriptor) {
 				// Start of a type descriptor
 				inTypeDescriptor = true;
@@ -249,6 +258,7 @@ public final class AccessTransformerService extends Service<AccessTransformerSer
 				result.append(c);
 			}
 		}
+
 		return result.toString();
 	}
 

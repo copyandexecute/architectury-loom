@@ -26,7 +26,6 @@ package dev.architectury.loom.forge.dependency;
 
 import java.io.File;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 
@@ -50,6 +49,7 @@ public class ForgeUniversalProvider extends DependencyProvider {
 		if (!forge.exists() || refreshDeps()) {
 			// Try normal Gradle resolution first
 			Optional<File> dep;
+
 			try {
 				dep = dependency.resolveFile();
 			} catch (Exception e) {
