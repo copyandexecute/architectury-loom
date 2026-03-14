@@ -214,6 +214,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 java {
+	withSourcesJar()
 	sourceCompatibility = JavaVersion.VERSION_21
 	targetCompatibility = JavaVersion.VERSION_21
 }
@@ -331,6 +332,14 @@ publishing {
 			maven {
 				name = "norisk-production"
 				url = "https://maven.norisk.gg/repository/norisk-production/"
+				credentials {
+					username = System.getenv("NORISK_NEXUS_USERNAME")
+					password = System.getenv("NORISK_NEXUS_PASSWORD")
+				}
+			}
+			maven {
+				name = "maven-releases"
+				url = "https://maven.norisk.gg/repository/maven-releases/"
 				credentials {
 					username = System.getenv("NORISK_NEXUS_USERNAME")
 					password = System.getenv("NORISK_NEXUS_PASSWORD")
