@@ -116,8 +116,13 @@ public class MixinAPMappingService extends Service<MixinAPMappingService.Options
 
 				final LoomGradleExtension extension = LoomGradleExtension.get(project);
 
-				if (!mappingId.equals(extension.getMappingConfiguration().mappingsIdentifier)) {
-					// Only find mixin mappings that are from other projects with the same mapping id.
+				try {
+					if (!mappingId.equals(extension.getMappingConfiguration().mappingsIdentifier)) {
+						// Only find mixin mappings that are from other projects with the same mapping id.
+						return;
+					}
+				} catch (NullPointerException e) {
+					// Skip projects where mappings haven't been setup yet (e.g. other Stonecutter versions)
 					return;
 				}
 
