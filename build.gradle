@@ -26,7 +26,7 @@ group = "gg.norisk"
 def baseVersion = '1.15'
 
 def ENV = System.getenv()
-def runNumber = ENV.GITHUB_RUN_NUMBER ?: "9999"
+def runNumber = ENV.GITHUB_RUN_NUMBER ?: "209"
 
 def isSnapshot = ENV.PR_NUM != null
 

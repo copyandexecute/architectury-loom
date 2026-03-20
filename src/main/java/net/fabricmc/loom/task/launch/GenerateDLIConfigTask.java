@@ -323,6 +323,9 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 				// RunConfigSettings.environment
 				var env = template.name().toLowerCase(Locale.ROOT);
 
+				// Skip templates with names that DLI doesn't understand (e.g. "clientdata" from Forge 1.21.11+)
+				if (env.contains("data") && !env.equals("data")) continue;
+
 				for (String argument : template.args()) {
 					launchConfig.argument(env, argument);
 				}

@@ -152,7 +152,11 @@ public abstract class LoomConfigurations implements Runnable {
 
 		// Add the dev time dependencies
 		getDependencies().add(Constants.Configurations.LOOM_DEVELOPMENT_DEPENDENCIES, LoomVersions.DEV_LAUNCH_INJECTOR.mavenNotation());
-		getDependencies().add(Constants.Configurations.LOOM_DEVELOPMENT_DEPENDENCIES, LoomVersions.FABRIC_LOG4J_UTIL.mavenNotation());
+
+		// fabric-log4j-util conflicts with Forge/NeoForge's terminalconsoleappender (duplicate package export)
+		if (!extension.isForgeLike()) {
+			getDependencies().add(Constants.Configurations.LOOM_DEVELOPMENT_DEPENDENCIES, LoomVersions.FABRIC_LOG4J_UTIL.mavenNotation());
+		}
 		// The above fabric-log4j-util doesn't work with beta versions of log4j2 (as used by e.g. Minecraft 1.8), so we
 		// add a somewhat arbitrary minimum log4j-core version to ensure we're not using the beta version.
 		// We don't want to be too up-to-date or people might accidentally use log4j features not available in prod.

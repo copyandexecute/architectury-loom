@@ -189,6 +189,11 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 							manifest.read(is);
 						}
 
+						// Remove Automatic-Module-Name from merged jar — Forge's DisplayWindow.updateModuleReads
+						// and DummyProvider.updateModuleReads crash when the module is found but classes can't be
+						// loaded via Class.forName(Module, className) due to ClassLoader mismatch in dev.
+						manifest.getMainAttributes().remove(new Attributes.Name("Automatic-Module-Name"));
+
 						for (Iterator<Attributes> it = manifest.getEntries().values().iterator(); it.hasNext(); ) {
 							Attributes attrs = it.next();
 

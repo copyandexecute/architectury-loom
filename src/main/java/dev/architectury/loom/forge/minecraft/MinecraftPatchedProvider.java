@@ -237,6 +237,9 @@ public class MinecraftPatchedProvider {
 		if (dirty) {
 			remapPatchedJar(serviceFactory);
 			fillClientExtraJar(serviceFactory);
+
+			// Note: On Forge, DummyProvider.setupMinecraftWindow may NPE (NV_HANDOFF null)
+			// due to JPMS ClassLoader mismatch. Fixed via Mixin on Window in client code.
 		}
 
 		if (getExtension().disableObfuscation()) {
@@ -294,6 +297,28 @@ public class MinecraftPatchedProvider {
 				settings.args("--output", minecraftIntermediateJar.toAbsolutePath().toString());
 				settings.args("--neoform-data", getExtension().getMcpConfigProvider().getMcp().toAbsolutePath().toString());
 			});
+		}
+	}
+
+	private void stripAutomaticModuleName(Path jarPath) throws IOException {
+		try (FileSystemUtil.Delegate fs = FileSystemUtil.getJarFileSystem(jarPath, false)) {
+			Path manifestPath = fs.getPath("META-INF", "MANIFEST.MF");
+
+			if (Files.exists(manifestPath)) {
+				java.util.jar.Manifest manifest = new java.util.jar.Manifest();
+
+				try (java.io.InputStream is = Files.newInputStream(manifestPath)) {
+					manifest.read(is);
+				}
+
+				if (manifest.getMainAttributes().remove(new java.util.jar.Attributes.Name("Automatic-Module-Name")) != null) {
+					try (java.io.OutputStream os = Files.newOutputStream(manifestPath)) {
+						manifest.write(os);
+					}
+
+					logger.lifecycle(":stripped Automatic-Module-Name from {}", jarPath.getFileName());
+				}
+			}
 		}
 	}
 
