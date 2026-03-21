@@ -80,6 +80,7 @@ import net.fabricmc.loom.configuration.mods.ModConfigurationRemapper;
 import net.fabricmc.loom.configuration.processors.JsrAnnotationRemapperProcessor;
 import net.fabricmc.loom.configuration.processors.MinecraftJarProcessorManager;
 import net.fabricmc.loom.configuration.processors.ModJavadocProcessor;
+import net.fabricmc.loom.configuration.processors.ProcessorContextImpl;
 import net.fabricmc.loom.configuration.processors.speccontext.DebofConfiguration;
 import net.fabricmc.loom.configuration.providers.mappings.GeneratedIntermediateMappingsProvider;
 import net.fabricmc.loom.configuration.providers.mappings.LayeredMappingsFactory;
@@ -319,6 +320,7 @@ public abstract class CompileConfiguration implements Runnable {
 		// Provide the remapped mc jars
 		IntermediaryMinecraftProvider<?> intermediaryMinecraftProvider = extension.getUseIntermediateMappings().get() ? jarConfiguration.createIntermediaryMinecraftProvider(project) : null;
 		NamedMinecraftProvider<?> namedMinecraftProvider = jarConfiguration.createNamedMinecraftProvider(project);
+		final NamedMinecraftProvider<?> baseNamedProvider = namedMinecraftProvider;
 
 		registerGameProcessors(configContext);
 		MinecraftJarProcessorManager minecraftJarProcessorManager = MinecraftJarProcessorManager.create(getProject());
@@ -337,6 +339,25 @@ public abstract class CompileConfiguration implements Runnable {
 
 		extension.setNamedMinecraftProvider(namedMinecraftProvider);
 		namedMinecraftProvider.provide(provideContext);
+
+		// Apply game processors (AccessWidener, AccessTransformer, etc.) to the global named JARs.
+		// On Forge, the runtime classpath uses the global (unprocessed) named JAR, not the
+		// local processed copy. Without this, AW entries are not applied at runtime,
+		// causing IllegalAccessError for widened fields/methods.
+		if (extension.isForgeLike() && minecraftJarProcessorManager != null) {
+			final String processorHash = minecraftJarProcessorManager.getJarHash();
+
+			for (var minecraftJar : baseNamedProvider.getMinecraftJars()) {
+				final Path jarPath = minecraftJar.getPath();
+				final Path hashFile = jarPath.resolveSibling(jarPath.getFileName() + ".processed");
+				final String existingHash = Files.exists(hashFile) ? Files.readString(hashFile).trim() : "";
+
+				if (!processorHash.equals(existingHash)) {
+					minecraftJarProcessorManager.processJar(jarPath, new ProcessorContextImpl(configContext, minecraftJar));
+					Files.writeString(hashFile, processorHash);
+				}
+			}
+		}
 
 		if (extension.isForge()) {
 			final SrgMinecraftProvider<?> srgMinecraftProvider = jarConfiguration.createSrgMinecraftProvider(project);

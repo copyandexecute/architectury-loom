@@ -237,9 +237,6 @@ public class MinecraftPatchedProvider {
 		if (dirty) {
 			remapPatchedJar(serviceFactory);
 			fillClientExtraJar(serviceFactory);
-
-			// Note: On Forge, DummyProvider.setupMinecraftWindow may NPE (NV_HANDOFF null)
-			// due to JPMS ClassLoader mismatch. Fixed via Mixin on Window in client code.
 		}
 
 		if (getExtension().disableObfuscation()) {
