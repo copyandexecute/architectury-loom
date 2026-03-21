@@ -534,6 +534,7 @@ public class MinecraftPatchedProvider {
 	private void remapPatchedJar(ServiceFactory serviceFactory) throws Exception {
 		if (getExtension().disableObfuscation()) {
 			applyLoomPatchVersion(minecraftPatchedJar);
+			stripAutomaticModuleName(minecraftPatchedJar);
 			return;
 		}
 
@@ -564,6 +565,7 @@ public class MinecraftPatchedProvider {
 		copyUserdevFiles(forgeUserdevJar, mcOutput);
 		remapCoreMods(mcOutput, serviceFactory);
 		applyLoomPatchVersion(mcOutput);
+		stripAutomaticModuleName(mcOutput);
 	}
 
 	private void remapCoreMods(Path patchedJar, ServiceFactory serviceFactory) throws Exception {
