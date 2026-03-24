@@ -148,7 +148,9 @@ public abstract class LoomGradleExtensionImpl extends LoomGradleExtensionApiImpl
 			disableObfuscation.set(true);
 			disableObfuscation.finalizeValue();
 		} else {
-			disableObfuscation.set(project.provider(() -> GradleUtils.getBooleanProperty(getProject(), Constants.Properties.DISABLE_OBFUSCATION)));
+			// Use getOwnBooleanProperty to avoid inheriting disableObfuscation from parent/sibling
+			// projects in multi-version setups (e.g. Stonecutter).
+			disableObfuscation.set(project.provider(() -> GradleUtils.getOwnBooleanProperty(getProject(), Constants.Properties.DISABLE_OBFUSCATION)));
 			disableObfuscation.finalizeValueOnRead();
 		}
 
