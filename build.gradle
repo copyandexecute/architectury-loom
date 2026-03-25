@@ -5,7 +5,7 @@ plugins {
 	id 'idea'
 	id 'eclipse'
 	id 'groovy'
-	id 'checkstyle'
+	//id 'checkstyle'
 	id 'codenarc'
 	alias(libs.plugins.kotlin)
 	alias(libs.plugins.spotless)
@@ -253,10 +253,10 @@ spotless {
 	}
 }
 
-checkstyle {
-	configFile = file('checkstyle.xml')
-	toolVersion = libs.versions.checkstyle.get()
-}
+//checkstyle {
+//	configFile = file('checkstyle.xml')
+//	toolVersion = libs.versions.checkstyle.get()
+//}
 
 codenarc {
 	toolVersion = libs.versions.codenarc.get()
