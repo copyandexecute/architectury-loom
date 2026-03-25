@@ -109,12 +109,12 @@ public class MixinAPMappingService extends Service<MixinAPMappingService.Options
 			processProject.accept(thisProject);
 		} else {
 			GradleUtils.allLoomProjects(thisProject.getGradle(), project -> {
-				if (project.getPlugins().hasPlugin(LoomNoRemapGradlePlugin.NAME)) {
+				final LoomGradleExtension extension = LoomGradleExtension.get(project);
+
+				if (project.getPlugins().hasPlugin(LoomNoRemapGradlePlugin.NAME) || extension.disableObfuscation()) {
 					// Unobfuscated projects do not have mappings to provide.
 					return;
 				}
-
-				final LoomGradleExtension extension = LoomGradleExtension.get(project);
 
 				try {
 					if (!mappingId.equals(extension.getMappingConfiguration().mappingsIdentifier)) {

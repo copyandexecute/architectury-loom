@@ -25,9 +25,6 @@
 package net.fabricmc.loom.util.gradle;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Properties;
 import java.util.function.Consumer;
 
 import org.gradle.api.Project;
@@ -119,45 +116,6 @@ public final class GradleUtils {
 		return getBooleanPropertyProvider(project, key).getOrElse(defaultValue);
 	}
 
-	/**
-	 * Reads a boolean property only from the project's own gradle.properties file,
-	 * without inheriting from parent projects. This prevents property leakage in
-	 * multi-version setups like Stonecutter, where e.g. an unobfuscated version's
-	 * disableObfuscation=true would otherwise affect obfuscated sibling versions.
-	 */
-	public static boolean getOwnBooleanProperty(Project project, String key) {
-		// Check extra properties set programmatically on this project
-		if (project.getExtensions().getExtraProperties().has(key)) {
-			Object value = project.getExtensions().getExtraProperties().get(key);
-
-			if (value instanceof String str) {
-				return Boolean.parseBoolean(str);
-			} else if (value instanceof Boolean bool) {
-				return bool;
-			}
-		}
-
-		// Read directly from the project's own gradle.properties
-		File propsFile = new File(project.getProjectDir(), "gradle.properties");
-
-		if (propsFile.exists()) {
-			Properties props = new Properties();
-
-			try (FileInputStream fis = new FileInputStream(propsFile)) {
-				props.load(fis);
-			} catch (IOException e) {
-				return false;
-			}
-
-			String value = props.getProperty(key);
-
-			if (value != null) {
-				return Boolean.parseBoolean(value);
-			}
-		}
-
-		return false;
-	}
 
 	public static Object getProperty(Project project, String key) {
 		LoomGradleExtension extension = LoomGradleExtension.get(project);
